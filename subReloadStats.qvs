@@ -1,0 +1,71 @@
+// Load this entire file as soon as possible. Main tab recommended.
+// E.g.: $(Must_Include=lib://YOUR LIBRARY\subReloadStats.qvs);
+
+// SetupLog sets everything up so the other functions can be used
+// SetupLog is called at the end of this file. You can remove the last line
+//   and call it yourself at will.
+// E.g.: CALL SetupLog;
+Sub SetupLog
+
+	// Create Log Tables
+	ReloadDetails:
+	LOAD * INLINE [
+		Stage, Start
+	];
+
+	ReloadDetails_Temp:
+	LOAD * INLINE [
+		Stage, Start, End, Duration
+	];
+
+End Sub
+
+
+// StartLog records the begining of a section
+// It needs an argument in the form of a string with the name of the section.
+// E.g.: CALL StartLog('Calendar');
+Sub StartLog(ModuleName)
+
+	// Module Log Initiate
+	CONCATENATE(ReloadDetails)
+	LOAD 
+		'$(ModuleName)'		AS Stage
+	  , Timestamp(Now())	AS Start
+	AUTOGENERATE(1);
+
+End Sub
+
+
+// StopLog records the end of a section
+// It needs an argument in the form of a string with the name of the section.
+// The section name should match the name provided in the StartLog function.
+// E.g.: CALL StopLog('Calendar');
+Sub StopLog(ModuleName)
+
+	// Module Log End
+	CONCATENATE(ReloadDetails_Temp)
+	LOAD
+		Stage
+	  , Start
+	  , Timestamp(Now())					AS End
+	  , Interval(Timestamp(Now()) - Start)	AS Duration
+	RESIDENT ReloadDetails
+	WHERE Stage='$(ModuleName)';
+
+End Sub
+
+
+// CleanupLog should be called at the very end of the load script
+// This step is important 
+// E.g.: CALL CleanupLog;
+Sub CleanupLog
+
+	// Tidy Up Log Table
+	DROP TABLE ReloadDetails;
+	RENAME TABLE ReloadDetails_Temp to ReloadDetails;
+
+End Sub
+
+
+// Delete this line if you want to call SetupLog manually.
+CALL SetupLog;
