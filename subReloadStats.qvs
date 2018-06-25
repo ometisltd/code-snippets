@@ -1,22 +1,38 @@
-// Load this entire file as soon as possible. Main tab recommended.
+// Load this entire file as soon as possible in the script.
 // E.g.: $(Must_Include=lib://YOUR LIBRARY\subReloadStats.qvs);
+
+// UnqualifyAllFields unqualifies all fields used by this script to avoid qualify issues.
+Sub UnqualifyAllFields
+
+	UNQUALIFY ReloadStats.Stage
+			, ReloadStats.StageNo
+			, ReloadStats.Start
+			, ReloadStats.End
+			, ReloadStats.Duration
+	;
+
+End Sub
 
 // SetupLog sets everything up so the other functions can be used
 // SetupLog is called at the end of this file. You can remove the last line
 //   and call it yourself at will.
 // E.g.: CALL SetupLog;
 Sub SetupLog
+	
+	CALL UnqualifyAllFields;
 
 	// Create Log Tables
-	ReloadDetails:
+	ReloadStats:
 	LOAD * INLINE [
-		Stage, Start
+		ReloadStats.Stage, ReloadStats.StageNo, ReloadStats.Start
 	];
 
-	ReloadDetails_Temp:
+	ReloadStats_Temp:
 	LOAD * INLINE [
-		Stage, Start, End, Duration
+		ReloadStats.Stage, ReloadStats.StageNo, ReloadStats.Start, ReloadStats.End, ReloadStats.Duration
 	];
+
+	TRACE ;
 
 End Sub
 
@@ -24,13 +40,16 @@ End Sub
 // StartLog records the begining of a section
 // It needs an argument in the form of a string with the name of the section.
 // E.g.: CALL StartLog('Calendar');
-Sub StartLog(ModuleName)
+Sub StartLog(ReloadStats_ModuleName)
+	
+	CALL UnqualifyAllFields;
 
 	// Module Log Initiate
-	CONCATENATE(ReloadDetails)
+	CONCATENATE(ReloadStats)
 	LOAD 
-		'$(ModuleName)'		AS Stage
-	  , Timestamp(Now())	AS Start
+		'$(ReloadStats_ModuleName)'		AS ReloadStats.Stage
+	  , RowNo()							AS ReloadStats.StageNo
+	  , Timestamp(Now())				AS ReloadStats.Start
 	AUTOGENERATE(1);
 
 End Sub
@@ -40,17 +59,24 @@ End Sub
 // It needs an argument in the form of a string with the name of the section.
 // The section name should match the name provided in the StartLog function.
 // E.g.: CALL StopLog('Calendar');
-Sub StopLog(ModuleName)
+Sub StopLog(ReloadStats_ModuleName)
+
+	CALL UnqualifyAllFields;
 
 	// Module Log End
-	CONCATENATE(ReloadDetails_Temp)
+	CONCATENATE(ReloadStats_Temp)
 	LOAD
-		Stage
-	  , Start
-	  , Timestamp(Now())					AS End
-	  , Interval(Timestamp(Now()) - Start)	AS Duration
-	RESIDENT ReloadDetails
-	WHERE Stage='$(ModuleName)';
+		ReloadStats.Stage
+	  , ReloadStats.StageNo
+	  , ReloadStats.Start
+	  , Timestamp(Now())								AS ReloadStats.End
+	  , Interval(Timestamp(Now()) - ReloadStats.Start)	AS ReloadStats.Duration
+	RESIDENT ReloadStats
+	WHERE ReloadStats.Stage='$(ReloadStats_ModuleName)';
+
+	// Log module duration after it finished
+	LET vReloadStatsDuration = Lookup('ReloadStats.Duration', 'ReloadStats.Stage', '$(ReloadStats_ModuleName)', 'ReloadStats_Temp');
+	TRACE [$(ReloadStats_ModuleName)] took $(vReloadStatsDuration);
 
 End Sub
 
@@ -61,8 +87,11 @@ End Sub
 Sub CleanupLog
 
 	// Tidy Up Log Table
-	DROP TABLE ReloadDetails;
-	RENAME TABLE ReloadDetails_Temp to ReloadDetails;
+	DROP TABLE ReloadStats;
+	RENAME TABLE ReloadStats_Temp TO ReloadStats;
+
+	// Reset any used variables
+	LET vReloadStatsDuration = null();
 
 End Sub
 
