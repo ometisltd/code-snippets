@@ -1,4 +1,4 @@
 # Code Snippets
 
-[Reload Stats](code-snippets/blob/master/Reload Stats/README.md)
+[Reload Stats](https://github.com/ometisltd/code-snippets/blob/master/Reload%20Stats/README.md)
 
