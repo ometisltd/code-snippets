@@ -1,4 +1,4 @@
 # Code Snippets
 
-[Reload Stats](/Reload Stats/README.md)
+[Reload Stats](code-snippets/blob/master/Reload Stats/README.md)
 
