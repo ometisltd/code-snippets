@@ -1,4 +1,4 @@
 # Code Snippets
 
-[Reload Stats](Reload Stats/README.md)
+[Reload Stats](/Reload Stats/README.md)
 
