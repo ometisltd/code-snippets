@@ -18,6 +18,20 @@ Logs the time for the finish of the block specified in the argument `string`. Fo
 Removes any temporary tables and variables created by this project. Should be called at the very end of the load script.
 
 
+## Fields generated
+| Field                 | Format      | Example             |
+| --------------------- | ----------- | ------------------- |
+| ReloadStats.Stage     | String      | Calendar            |
+| ReloadStats.StageNo   | Integer     | 2                   |
+| ReloadStats.Start     | Timestamp*  | 25/06/2018 15:39:43 |
+| ReloadStats.End       | Timestamp*  | 25/06/2018 15:39:58 |
+| ReloadStats.Duration  | Interval*   | 00:00:15            |
+
+\* Timestamps and Intervals will use the format specified by your `TimeFormat` and `TimestampFormat` variables usually found in the Main tab.
+
+Fields are prefixed so they don't accidentally link with your data.
+
+
 ## How to use
 Here's some simple steps on how to use it.
 
