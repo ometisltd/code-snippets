@@ -1,6 +1,4 @@
-// Load this entire file as soon as possible in the script.
-// E.g.: $(Must_Include=lib://YOUR LIBRARY\subReloadStats.qvs);
-
+// Reload Stats
 // UnqualifyAllFields unqualifies all fields used by this script to avoid qualify issues.
 Sub UnqualifyAllFields
 
@@ -18,7 +16,7 @@ End Sub
 //   and call it yourself at will.
 // E.g.: CALL SetupLog;
 Sub SetupLog
-	
+
 	CALL UnqualifyAllFields;
 
 	// Create Log Tables
@@ -40,16 +38,16 @@ End Sub
 // StartLog records the begining of a section
 // It needs an argument in the form of a string with the name of the section.
 // E.g.: CALL StartLog('Calendar');
-Sub StartLog(ReloadStats_ModuleName)
-	
+Sub StartLog(ReloadStats_StageName)
+
 	CALL UnqualifyAllFields;
 
 	// Module Log Initiate
 	CONCATENATE(ReloadStats)
-	LOAD 
-		'$(ReloadStats_ModuleName)'		AS ReloadStats.Stage
-	  , RowNo()							AS ReloadStats.StageNo
-	  , Timestamp(Now())				AS ReloadStats.Start
+	LOAD
+		'$(ReloadStats_StageName)'		AS [ReloadStats.Stage]
+	  , RowNo()							AS [ReloadStats.StageNo]
+	  , Timestamp(Now())				AS [ReloadStats.Start]
 	AUTOGENERATE(1);
 
 End Sub
@@ -59,30 +57,30 @@ End Sub
 // It needs an argument in the form of a string with the name of the section.
 // The section name should match the name provided in the StartLog function.
 // E.g.: CALL StopLog('Calendar');
-Sub StopLog(ReloadStats_ModuleName)
+Sub StopLog(ReloadStats_StageName)
 
 	CALL UnqualifyAllFields;
 
 	// Module Log End
 	CONCATENATE(ReloadStats_Temp)
 	LOAD
-		ReloadStats.Stage
-	  , ReloadStats.StageNo
-	  , ReloadStats.Start
-	  , Timestamp(Now())								AS ReloadStats.End
-	  , Interval(Timestamp(Now()) - ReloadStats.Start)	AS ReloadStats.Duration
+		[ReloadStats.Stage]
+	  , [ReloadStats.StageNo]
+	  , [ReloadStats.Start]
+	  , Timestamp(Now())									AS [ReloadStats.End]
+	  , Interval(Timestamp(Now()) - [ReloadStats.Start])	AS [ReloadStats.Duration]
 	RESIDENT ReloadStats
-	WHERE ReloadStats.Stage='$(ReloadStats_ModuleName)';
+	WHERE ReloadStats.Stage = '$(ReloadStats_StageName)';
 
 	// Log module duration after it finished
-	LET vReloadStatsDuration = Lookup('ReloadStats.Duration', 'ReloadStats.Stage', '$(ReloadStats_ModuleName)', 'ReloadStats_Temp');
-	TRACE [$(ReloadStats_ModuleName)] took $(vReloadStatsDuration);
+	LET vReloadStatsDuration = Lookup('ReloadStats.Duration', 'ReloadStats.Stage', '$(ReloadStats_StageName)', 'ReloadStats_Temp');
+	TRACE [$(ReloadStats_StageName)] took $(vReloadStatsDuration);
 
 End Sub
 
 
 // CleanupLog should be called at the very end of the load script
-// This step is important 
+// This step is important
 // E.g.: CALL CleanupLog;
 Sub CleanupLog
 
