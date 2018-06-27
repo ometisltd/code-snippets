@@ -54,7 +54,7 @@ If you want to choose when `SetupLog` is called, download this and delete the la
 ### On the first script block
 It's good practice to create a variable to save the name of the stage or block of code executing.
 
-> It's very important that you choose unique names for each of your stage/code blocks.
+> It is very important to choose unique names for each of the stages/code blocks.
 
 ```qlik
 LET log_StageName = 'Transactions';
