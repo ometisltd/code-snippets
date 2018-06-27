@@ -2,11 +2,11 @@
 // UnqualifyAllFields unqualifies all fields used by this script to avoid qualify issues.
 Sub UnqualifyAllFields
 
-	UNQUALIFY ReloadStats.Stage
-			, ReloadStats.StageNo
-			, ReloadStats.Start
-			, ReloadStats.End
-			, ReloadStats.Duration
+	UNQUALIFY [ReloadStats.Stage]
+			, [ReloadStats.StageNo]
+			, [ReloadStats.Start]
+			, [ReloadStats.End]
+			, [ReloadStats.Duration]
 	;
 
 End Sub
