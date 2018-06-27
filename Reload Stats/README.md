@@ -52,11 +52,13 @@ If loaded from this repository through a Web file connection or unmodified, `Set
 If you want to choose when `SetupLog` is called, download this and delete the last line.
 
 ### On the first script block
-It's good practice to create a variable to save the name of the module or block of code executing.
+It's good practice to create a variable to save the name of the stage or block of code executing.
+
+> It's very important that you choose unique names for each of your stage/code blocks.
 
 ```qlik
-LET log_ModuleName = 'Calendar';
-CALL StartLog(log_ModuleName);
+LET log_StageName = 'Transactions';
+CALL StartLog(log_StageName);
 
 // New code block
 // ...
@@ -72,9 +74,9 @@ You are free to call `StopLog` at the end of the actual code block but by callin
 // Previous code block
 
 
-CALL StopLog(log_ModuleName);
-LET log_ModuleName = 'Main Transactional Load';
-CALL StartLog(log_ModuleName);
+CALL StopLog(log_StageName);
+LET log_StageName = 'Calendar';
+CALL StartLog(log_StageName);
 
 // New code block
 // ...
@@ -89,10 +91,10 @@ It's also good practice to remove any variables you've used along the script for
 // Previous code block
 
 
-CALL StopLog(log_ModuleName);
+CALL StopLog(log_StageName);
 CALL CleanupLog;
 
 // Deallocate variables related to Reload Stats
-LET log_ModuleName = null();
+LET log_StageName = null();
 
 ```
