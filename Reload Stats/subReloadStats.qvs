@@ -2,11 +2,12 @@
 // UnqualifyAllFields unqualifies all fields used by this script to avoid qualify issues.
 Sub UnqualifyAllFields
 
-	UNQUALIFY ReloadStats.Stage
-			, ReloadStats.StageNo
-			, ReloadStats.Start
-			, ReloadStats.End
-			, ReloadStats.Duration
+	UNQUALIFY [ReloadStats.Stage]
+			, [ReloadStats.StageNo]
+			, [ReloadStats.ParentStage]
+			, [ReloadStats.Start]
+			, [ReloadStats.End]
+			, [ReloadStats.Duration]
 	;
 
 End Sub
@@ -22,14 +23,19 @@ Sub SetupLog
 	// Create Log Tables
 	ReloadStats:
 	LOAD * INLINE [
-		ReloadStats.Stage, ReloadStats.StageNo, ReloadStats.Start
+		ReloadStats.Stage, ReloadStats.StageNo, ReloadStats.ParentStage, ReloadStats.Start
 	];
 
 	ReloadStats_Temp:
 	LOAD * INLINE [
-		ReloadStats.Stage, ReloadStats.StageNo, ReloadStats.Start, ReloadStats.End, ReloadStats.Duration
+		ReloadStats.Stage, ReloadStats.StageNo, ReloadStats.ParentStage, ReloadStats.Start, ReloadStats.End, ReloadStats.Duration
 	];
 
+	// Variables used by this process
+	LET vReloadStatsDuration;
+	LET vRelooadStatsParentBool = False();
+
+	// Adds a blank line on the live script feed. Helps separating the stages.
 	TRACE ;
 
 End Sub
@@ -38,15 +44,20 @@ End Sub
 // StartLog records the begining of a section
 // It needs an argument in the form of a string with the name of the section.
 // E.g.: CALL StartLog('Calendar');
-Sub StartLog(ReloadStats_StageName)
+Sub StartLog(ReloadStats_StageName, ReloadStats_ParentName)
 
 	CALL UnqualifyAllFields;
+
+	IF NOT(ISNULL(ReloadStats_ParentName)) THEN
+		LET vRelooadStatsParentBool = True();
+	ENDIF
 
 	// Module Log Initiate
 	CONCATENATE(ReloadStats)
 	LOAD
 		'$(ReloadStats_StageName)'		AS [ReloadStats.Stage]
 	  , RowNo()							AS [ReloadStats.StageNo]
+	  , '$(ReloadStats_ParentName)'		AS [ReloadStats.ParentStage]
 	  , Timestamp(Now())				AS [ReloadStats.Start]
 	AUTOGENERATE(1);
 
@@ -67,6 +78,9 @@ Sub StopLog(ReloadStats_StageName)
 		[ReloadStats.Stage]
 	  , [ReloadStats.StageNo]
 	  , [ReloadStats.Start]
+	  , [ReloadStats.ParentStage]
+	  , Lookup('ReloadStats.StageNo', 'ReloadStats.Stage',
+	  		[ReloadStats.ParentStage], 'ReloadStats')		AS [ReloadStats.ParentStageNo]
 	  , Timestamp(Now())									AS [ReloadStats.End]
 	  , Interval(Timestamp(Now()) - [ReloadStats.Start])	AS [ReloadStats.Duration]
 	RESIDENT ReloadStats
@@ -74,7 +88,7 @@ Sub StopLog(ReloadStats_StageName)
 
 	// Log module duration after it finished
 	LET vReloadStatsDuration = Lookup('ReloadStats.Duration', 'ReloadStats.Stage', '$(ReloadStats_StageName)', 'ReloadStats_Temp');
-	TRACE [$(ReloadStats_StageName)] took $(vReloadStatsDuration);
+	TRACE [Reload Stats] $(ReloadStats_StageName) |> $(vReloadStatsDuration);
 
 End Sub
 
@@ -86,10 +100,29 @@ Sub CleanupLog
 
 	// Tidy Up Log Table
 	DROP TABLE ReloadStats;
-	RENAME TABLE ReloadStats_Temp TO ReloadStats;
+
+	// Apply hierarchy to the Reload Stats table
+	IF vRelooadStatsParentBool THEN
+		ReloadStats:
+		Hierarchy([ReloadStats.StageNo], [ReloadStats.ParentStageNo],
+			[ReloadStats.Stage], [ReloadStats.DirectParentStage],
+			[ReloadStats.Stage], [ReloadStats.StagePath], '\')
+		LOAD *  RESIDENT ReloadStats_Temp;
+
+		DROP TABLE ReloadStats_Temp;
+	END IF
+
+	// No hierarchy used. Removing unused fields.
+	IF NOT(vRelooadStatsParentBool) THEN
+		RENAME TABLE ReloadStats_Temp TO ReloadStats;
+		DROP FIELDS [ReloadStats.ParentStageNo], [ReloadStats.ParentStage];
+	END IF
 
 	// Reset any used variables
 	LET vReloadStatsDuration = null();
+	LET vRelooadStatsParentBool = null();
+
+	TRACE [Reload Stats] Table ready!;
 
 End Sub
 
