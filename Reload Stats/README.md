@@ -8,24 +8,40 @@ As a main feature, it creates a table with start, end, and duration values for y
 ### `SetupLog`
 Creates the table structure necessary to log all reload stats.
 
-### `StartLog(string)`
-Logs the starting time for the code block specified in the argument `string`.
+### `StartLog(stageName, [parentName])`
+Logs the starting time for the code block specified stage.
 
-### `StopLog(string)`
-Logs the time for the finish of the block specified in the argument `string`. For this to function well, `string` should match what was used on `StartLog`. Using a variable for this is highly recommended, see usage below.
+##### Arguments
+- **stageName**: The name for the current stage.
+- **[parentName]**: Optional. The name for the parent stage.
+
+
+### `StopLog(stageName)`
+Logs the time for the finish of the block specified in the argument `stageName`. It should match what was used on `StartLog`. Using a variable for this is highly recommended, see usage below.
+
+##### Arguments
+- **stageName**: The name for the stage to stop.
 
 ### `CleanupLog`
 Removes any temporary tables and variables created by this project. Should be called at the very end of the load script.
 
 
 ## Fields generated
-| Field                 | Format      | Example             |
-| --------------------- | ----------- | ------------------- |
-| ReloadStats.Stage     | String      | Calendar            |
-| ReloadStats.StageNo   | Integer     | 2                   |
-| ReloadStats.Start     | Timestamp*  | 25/06/2018 15:39:43 |
-| ReloadStats.End       | Timestamp*  | 25/06/2018 15:39:58 |
-| ReloadStats.Duration  | Interval*   | 00:00:15            |
+| Field                 	| Format      | Example             		|
+| ------------------------- | ----------- | --------------------------- |
+| ReloadStats.Stage     	| String      | Calendar            		|
+| ReloadStats.StageNo   	| Integer     | 2                   		|
+| ReloadStats.Start     	| Timestamp*  | 25/06/2018 15:39:43 		|
+| ReloadStats.End       	| Timestamp*  | 25/06/2018 15:39:58 		|
+| ReloadStats.Duration  	| Interval*   | 00:00:15            		|
+| ↓ Generated only if Parent field is used ↓									|
+| ReloadStats.ParentStage	| String	  | Parent Stage 1				|
+| ReloadStats.ParentStageNo	| Integer	  | 3   						|
+| ReloadStats.StagePath		| String	  | Parent Stage 1\Sub Stage 2	|
+| ReloadStats.Stage1		| String	  | Parent Stage 1				|
+| ReloadStats.Stage2		| String	  | Sub Stage 2					|
+| ReloadStats.Stage#		| String	  | ...							|
+
 
 \* Timestamps and Intervals will use the format specified by your `TimeFormat` and `TimestampFormat` variables usually found in the Main tab.
 
@@ -73,7 +89,6 @@ You are free to call `StopLog` at the end of the actual code block but by callin
 //...
 // Previous code block
 
-
 CALL StopLog(log_StageName);
 LET log_StageName = 'Calendar';
 CALL StartLog(log_StageName);
@@ -90,11 +105,36 @@ It's also good practice to remove any variables you've used along the script for
 //...
 // Previous code block
 
-
 CALL StopLog(log_StageName);
 CALL CleanupLog;
 
 // Deallocate variables related to Reload Stats
 LET log_StageName = null();
+LET log_ParentStage = null(); // If Parent stages were used
+```
 
+### Using Parent stages (optional)
+Call `StopLog`, assign current stage variable to be the parent stage, rename current stage variable, and call `StartLog` with both arguments.  
+Remember to call `StopLog` for both the current and the parent stage once they're done. It's recommended to add a new tab to the script once the parent stage is over to call `StopLog` on it for a better developer experience.
+
+```qlik
+//...
+// Previous code block (likely parent)
+
+CALL StopLog(log_StageName);
+LET log_ParentStage = log_StageName;
+LET log_StageName = 'Process Config Excel';
+CALL StartLog(log_StageName, log_ParentStage);
+
+// New code block
+// ...
+
+
+// ...
+// End of parent
+CALL StopLog(log_ParentStage);
+
+
+// New code block
+// ...
 ```
