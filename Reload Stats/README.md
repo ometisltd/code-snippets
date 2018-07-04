@@ -34,7 +34,7 @@ Removes any temporary tables and variables created by this project. Should be ca
 | ReloadStats.Start     	| Timestamp*  | 25/06/2018 15:39:43 		|
 | ReloadStats.End       	| Timestamp*  | 25/06/2018 15:39:58 		|
 | ReloadStats.Duration  	| Interval*   | 00:00:15            		|
-| ↓ Generated only if Parent field is used ↓									|
+| **↓ Generated only if Parent field is used ↓** | ↓ | ↓				|
 | ReloadStats.ParentStage	| String	  | Parent Stage 1				|
 | ReloadStats.ParentStageNo	| Integer	  | 3   						|
 | ReloadStats.StagePath		| String	  | Parent Stage 1\Sub Stage 2	|
