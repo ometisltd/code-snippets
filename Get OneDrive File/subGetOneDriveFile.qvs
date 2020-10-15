@@ -1,0 +1,49 @@
+SUB GetOneDriveFile (QwcConnectionName,QwcServer,QwcToken,OneDriveFilePath)
+	trace '|$(QwcConnectionName)|$(QwcServer)|$(QwcToken)|$(OneDriveFilePath)|';
+
+	// No easy way to see if we've loaded this already, so using error modes to check
+    // - should fail first time, triggering the mapping load and not other times
+    let PrevErrorMode=ErrorMode;
+	let ErrorMode=0;
+    let vApplyMapTest=applymap('URL_EncodingMap',' ');
+    let ErrorMode=PrevErrorMode;
+    let PrevErrorMode=null();
+    
+	// Create URL encoding map
+	if len(vApplyMapTest)=0 then
+		URL_EncodingMap:
+		Mapping LOAD
+		    Replace([Character], 'space', ' ') as ASCII_Character,
+		    //Text([From Windows-1252]) as URL_encoding,
+		    Text([From UTF-8]) as URL_encoding
+		FROM [$(QwcConnectionName)]
+		(URL is [http://www.w3schools.com/tags/ref_urlencode.asp], html, utf8, embedded labels, table is @1);
+    end if
+	let vApplyMapTest=null();
+
+	// Need all thes parts in different places of the QWC URL
+	let vSubSite=	MapSubstring('URL_EncodingMap', left('$(OneDriveFilePath)',index('$(OneDriveFilePath)','/', 3)-1)); // e.g. encoded verison of '/sites/IT'
+	let vFolder=	MapSubstring('URL_EncodingMap', left('$(OneDriveFilePath)',index('$(OneDriveFilePath)','/',-1)-1)); // e.g. encoded version of '/sites/IT/Shared Documents/General/Misc'
+	let vFileName=	right('$(OneDriveFilePath)',len('$(OneDriveFilePath)')-index('$(OneDriveFilePath)','/',-1)); 		// e.g. Example.xlsx
+	trace '|$(vSubSite)|$(vFolder)|$(vFileName)|';
+
+	// Get a list of files matching the parameters - should only be one!
+	ListFiles:
+	NoConcatenate LOAD UniqueId
+	FROM [$(QwcConnectionName)]
+	(URL IS [$(QwcServer)/data?connectorID=Office365Connector&table=ListFiles&subSite=$(vSubSite)&folder=$(vFolder)&appID=&loadAccessToken=$(QwcToken)], qvx)
+	where Name='$(vFileName)';
+	
+	let vFileID=peek('UniqueId',0,'ListFiles');
+	drop table ListFiles;
+
+	
+	let vOneDriveFileUrl='$(QwcServer)/data?connectorID=Office365Connector&table=GetFile&subSite=$(vSubSite)&fileId=$(vFileID)&appID=&loadAccessToken=$(QwcToken)';
+	trace '$(vOneDriveFileUrl)';
+
+	let vSubSite=	null();
+	let vFolder=	null();
+	let vFileName=	null();
+	let vFileID=	null();
+
+END SUB
