@@ -2,11 +2,15 @@
 // UnqualifyAllFields unqualifies all fields used by this script to avoid qualify issues.
 Sub UnqualifyAllFields
 
-	UNQUALIFY [ReloadStats.Stage]
-			, [ReloadStats.StageNo]
-			, [ReloadStats.Start]
-			, [ReloadStats.End]
-			, [ReloadStats.Duration]
+	UNQUALIFY [%ReloadStats.Stage1]
+            , [%ReloadStats.Stage2]
+            , [%ReloadStats.Stage3]
+            , [%ReloadStats.Stage4]
+			, [%ReloadStats.StageNo]
+			, [%ReloadStats.Start]
+			, [%ReloadStats.End]
+			, [%ReloadStats.Duration]
+			, [%ReloadStats.InProgress]
 	;
 
 End Sub
@@ -15,19 +19,17 @@ End Sub
 // SetupLog is called at the end of this file. You can remove the last line
 //   and call it yourself at will.
 // E.g.: CALL SetupLog;
-Sub SetupLog
+Sub SetupLog(ReloadStats_QVDPath,ReloadStats_QVDName)
+
+	// Path plus name plus timestamp plus QVD
+	LET vReloadStats_QVDName = '$(ReloadStats_QVDPath)/' & timestamp(now(),'YYYYMMDD-hhmmss') & ' $(ReloadStats_QVDName).qvd';
 
 	CALL UnqualifyAllFields;
 
 	// Create Log Tables
 	ReloadStats:
 	LOAD * INLINE [
-		ReloadStats.Stage, ReloadStats.StageNo, ReloadStats.Start
-	];
-
-	ReloadStats_Temp:
-	LOAD * INLINE [
-		ReloadStats.Stage, ReloadStats.StageNo, ReloadStats.Start, ReloadStats.End, ReloadStats.Duration
+		%ReloadStats.Stage1, %ReloadStats.Stage2, %ReloadStats.Stage3, %ReloadStats.Stage4, %ReloadStats.StageNo, %ReloadStats.Start, %ReloadStats.End, %ReloadStats.Duration, %ReloadStats.InProgress
 	];
 
 	TRACE ;
@@ -38,17 +40,24 @@ End Sub
 // StartLog records the begining of a section
 // It needs an argument in the form of a string with the name of the section.
 // E.g.: CALL StartLog('Calendar');
-Sub StartLog(ReloadStats_StageName)
+Sub StartLog(ReloadStats_StageName1,ReloadStats_StageName2,ReloadStats_StageName3,ReloadStats_StageName4)
 
 	CALL UnqualifyAllFields;
 
 	// Module Log Initiate
 	CONCATENATE(ReloadStats)
 	LOAD
-		'$(ReloadStats_StageName)'		AS [ReloadStats.Stage]
-	  , RowNo()							AS [ReloadStats.StageNo]
-	  , Timestamp(Now())				AS [ReloadStats.Start]
+		'$(ReloadStats_StageName1)'		AS [%ReloadStats.Stage1]
+	  , '$(ReloadStats_StageName2)'		AS [%ReloadStats.Stage2]
+	  , '$(ReloadStats_StageName3)'		AS [%ReloadStats.Stage3]
+	  , '$(ReloadStats_StageName4)'		AS [%ReloadStats.Stage4]
+	  , RowNo()							AS [%ReloadStats.StageNo]
+	  , Timestamp(Now())				AS [%ReloadStats.Start]
+	  , 1								AS [%ReloadStats.InProgress]
 	AUTOGENERATE(1);
+
+	// Store the in progress data
+	CALL StoreQVD;
 
 End Sub
 
@@ -57,24 +66,43 @@ End Sub
 // It needs an argument in the form of a string with the name of the section.
 // The section name should match the name provided in the StartLog function.
 // E.g.: CALL StopLog('Calendar');
-Sub StopLog(ReloadStats_StageName)
+Sub StopLog(ReloadStats_StageName1,ReloadStats_StageName2,ReloadStats_StageName3,ReloadStats_StageName4)
 
 	CALL UnqualifyAllFields;
 
 	// Module Log End
-	CONCATENATE(ReloadStats_Temp)
-	LOAD
-		[ReloadStats.Stage]
-	  , [ReloadStats.StageNo]
-	  , [ReloadStats.Start]
-	  , Timestamp(Now())									AS [ReloadStats.End]
-	  , Interval(Timestamp(Now()) - [ReloadStats.Start])	AS [ReloadStats.Duration]
-	RESIDENT ReloadStats
-	WHERE ReloadStats.Stage = '$(ReloadStats_StageName)';
+	ReloadStats_Temp:
+	Noconcatenate LOAD
+		[%ReloadStats.Stage1]
+      , [%ReloadStats.Stage2]
+      , [%ReloadStats.Stage3]
+      , [%ReloadStats.Stage4]
+	  , [%ReloadStats.StageNo]
+	  , [%ReloadStats.Start]
+	  , 0														AS [%ReloadStats.InProgress]
+	  , if([%ReloadStats.Stage1] = '$(ReloadStats_StageName1)'
+      	AND [%ReloadStats.Stage2] = '$(ReloadStats_StageName2)'
+      	AND [%ReloadStats.Stage3] = '$(ReloadStats_StageName3)'
+      	AND [%ReloadStats.Stage4] = '$(ReloadStats_StageName4)',
+		  	Timestamp(Now()),
+			  [%ReloadStats.End])								AS [%ReloadStats.End]
+	  , if([%ReloadStats.Stage1] = '$(ReloadStats_StageName1)'
+      	AND [%ReloadStats.Stage2] = '$(ReloadStats_StageName2)'
+     	AND [%ReloadStats.Stage3] = '$(ReloadStats_StageName3)'
+      	AND [%ReloadStats.Stage4] = '$(ReloadStats_StageName4)',
+		  	Interval(Timestamp(Now()) - [%ReloadStats.Start]),
+			 [%ReloadStats.Duration]) 							AS [%ReloadStats.Duration]
+	RESIDENT ReloadStats;
+
+	Drop Table ReloadStats;
+	Rename Table ReloadStats_Temp to ReloadStats;
 
 	// Log module duration after it finished
-	LET vReloadStatsDuration = Lookup('ReloadStats.Duration', 'ReloadStats.Stage', '$(ReloadStats_StageName)', 'ReloadStats_Temp');
-	TRACE [$(ReloadStats_StageName)] took $(vReloadStatsDuration);
+    LET vReloadStatsDuration = peek('%ReloadStats.Duration',-1,'ReloadStats');
+	TRACE [$(ReloadStats_StageName1)]-[$(ReloadStats_StageName2)]-[$(ReloadStats_StageName3)]-[$(ReloadStats_StageName4)] took $(vReloadStatsDuration);
+
+	// Store the in progress data
+	CALL StoreQVD;
 
 End Sub
 
@@ -84,15 +112,21 @@ End Sub
 // E.g.: CALL CleanupLog;
 Sub CleanupLog
 
-	// Tidy Up Log Table
-	DROP TABLE ReloadStats;
-	RENAME TABLE ReloadStats_Temp TO ReloadStats;
+	// Store the final data
+	CALL StoreQVD;
 
 	// Reset any used variables
 	LET vReloadStatsDuration = null();
+	LET vReloadStats_QVDName = null();
 
 End Sub
 
+Sub StoreQVD
+	// Store out if QVD defined
+	if len('$(vReloadStats_QVDName)')>0 then
+		STORE [ReloadStats] into [$(vReloadStats_QVDName)] (qvd);
+	end if
+End Sub
 
 // Delete this line if you want to call SetupLog manually.
-CALL SetupLog;
+// CALL SetupLog;
